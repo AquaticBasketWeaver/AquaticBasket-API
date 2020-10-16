@@ -4,6 +4,7 @@
   "description": "An api that serves content (which will primarily just be photos for now) to AquaticBasketWeaver.github.io",
   "main": "dist/app.js",
   "dependencies": {
+    "aws-sdk": "^2.771.0",
     "express": "^4.17.1"
   },
   "devDependencies": {
