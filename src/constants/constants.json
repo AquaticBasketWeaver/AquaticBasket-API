@@ -1,4 +1,4 @@
 {
-    "allowed-origins": ["https://aquaticbasketweaver.github.io/"],
-    "photos-bucket": "aquaticbasket-photos",
+    "allowed-origins": ["https://aquaticbasketweaver.github.io"],
+    "photos-bucket": "aquaticbasket-photos"
 }
