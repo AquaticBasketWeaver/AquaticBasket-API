@@ -1,5 +1,5 @@
 {
-  "name": "AquaticBasket-API",
+  "name": "aquaticbasket-api",
   "version": "1.0.0",
   "description": "An api that serves content (which will primarily just be photos for now) to AquaticBasketWeaver.github.io",
   "main": "dist/app.js",

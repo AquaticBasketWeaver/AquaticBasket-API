@@ -1,10 +1,12 @@
 import express, { Router, Request, Response } from 'express';
 import AWS from 'aws-sdk';
+import checkOrigin from '../util/checkOrigin';
+import constants from '../constants/constants.json';
 
 const credentials = new AWS.SharedIniFileCredentials();
 AWS.config.credentials = credentials;
 const s3 = new AWS.S3();
-const bucket = 'aquaticbasket-media';
+const bucket = constants['photos-bucket'];
 
 // Encode data of s3 object into base64 for front end to display
 const encodeBase64 = (data: AWS.S3.Body): string => {
@@ -15,8 +17,11 @@ const encodeBase64 = (data: AWS.S3.Body): string => {
 
 const router: Router = express.Router();
 router.get('/photography', (req: Request, res: Response) => {
+    const origin = req.get('origin');
+    if (checkOrigin(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
     res.contentType('json');
-    res.header('Access-Control-Allow-Origin', '*');
     s3.listObjectsV2({
         Bucket: bucket,
     })
@@ -24,7 +29,11 @@ router.get('/photography', (req: Request, res: Response) => {
         .then((data) => {
             const bucketObjKeys = data.Contents.filter(({ Key }) => {
                 const fileParts = Key.split('/');
-                return fileParts[0] === 'photos' && fileParts.length === 2 && fileParts[1];
+                return fileParts.length === 2 && fileParts[0] === `page_${req.query.page}` && fileParts[1];
+            }).sort((a, b) => {
+                const firstKey = parseInt(a.Key.split('/')[1].split('_')[0]);
+                const secondKey = parseInt(b.Key.split('/')[1].split('_')[0]);
+                return firstKey - secondKey;
             });
             return Promise.all(
                 bucketObjKeys.map(({ Key }) =>
