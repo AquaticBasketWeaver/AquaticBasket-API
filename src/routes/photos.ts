@@ -2,6 +2,7 @@ import express, { Router, Request, Response } from 'express';
 import AWS from 'aws-sdk';
 import checkOrigin from '../util/checkOrigin';
 import constants from '../constants/constants.json';
+import { int } from 'aws-sdk/clients/datapipeline';
 
 const credentials = new AWS.SharedIniFileCredentials();
 AWS.config.credentials = credentials;
@@ -15,53 +16,70 @@ const encodeBase64 = (data: AWS.S3.Body): string => {
     return base64;
 };
 
+const getObjNameIndex = (name: string): int => {
+    return parseInt(name.split('_')[0]);
+};
+
+const getObjectNameFromKey = (key: string): string => {
+    return key.split('/')[1];
+};
+
+const getObjectIndex = (s3Obj: AWS.S3.Object): int => {
+    return getObjNameIndex(getObjectNameFromKey(s3Obj.Key));
+};
+
 const router: Router = express.Router();
-router.get('/photography', (req: Request, res: Response) => {
+router.get('/image', (req: Request, res: Response) => {
     const origin = req.get('origin');
     if (checkOrigin(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
     res.contentType('json');
+    const key = req.query.key.toString();
+    s3.getObject({
+        Bucket: bucket,
+        Key: key,
+    })
+        .promise()
+        .then((data) =>
+            res.send({
+                ContentType: data.ContentType,
+                Body: encodeBase64(data.Body),
+                Index: getObjNameIndex(getObjectNameFromKey(key)) - 1,
+            }),
+        )
+        .catch((err) => {
+            console.log(err);
+            res.status(500);
+            res.send('Could not get a photography photo');
+        });
+});
+
+router.get('/image-list', (req: Request, res: Response) => {
+    const origin = req.get('origin');
+    if (checkOrigin(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+    res.contentType('json');
+    const pageNum = req.query.page;
     s3.listObjectsV2({
         Bucket: bucket,
     })
         .promise()
         .then((data) => {
-            const bucketObjKeys = data.Contents.filter(({ Key }) => {
-                const fileParts = Key.split('/');
-                return fileParts.length === 2 && fileParts[0] === `page_${req.query.page}` && fileParts[1];
+            const result = data.Contents.filter(({ Key }) => {
+                return Key.split('/')[0] === `page_${pageNum}` && Key.split('/')[1];
             }).sort((a, b) => {
-                const firstKey = parseInt(a.Key.split('/')[1].split('_')[0]);
-                const secondKey = parseInt(b.Key.split('/')[1].split('_')[0]);
+                const firstKey = getObjectIndex(a);
+                const secondKey = getObjectIndex(b);
                 return firstKey - secondKey;
             });
-            return Promise.all(
-                bucketObjKeys.map(({ Key }) =>
-                    s3
-                        .getObject({
-                            Bucket: bucket,
-                            Key,
-                        })
-                        .promise()
-                        .then((data) => ({
-                            ContentType: data.ContentType,
-                            Body: encodeBase64(data.Body),
-                        }))
-                        .catch((err) => {
-                            console.log(err);
-                            res.status(500);
-                            res.send('Could not get a photography photo');
-                        }),
-                ),
-            );
-        })
-        .then((encodedImages) => {
-            res.send(encodedImages);
+            res.send(result);
         })
         .catch((err) => {
             console.log(err);
             res.status(500);
-            res.send('Could not get photography photos');
+            res.send('Could not get list of images');
         });
 });
 
