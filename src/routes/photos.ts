@@ -28,6 +28,10 @@ const getObjectIndex = (s3Obj: AWS.S3.Object): int => {
     return getObjNameIndex(getObjectNameFromKey(s3Obj.Key));
 };
 
+const getKeyPage = (s3Obj: AWS.S3.Object): int => {
+    return parseInt(s3Obj.Key.split('/')[0].split('_')[1]);
+};
+
 const router: Router = express.Router();
 router.get('/image', (req: Request, res: Response) => {
     const origin = req.get('origin');
@@ -61,18 +65,17 @@ router.get('/image-list', (req: Request, res: Response) => {
         res.header('Access-Control-Allow-Origin', origin);
     }
     res.contentType('json');
-    const pageNum = req.query.page;
     s3.listObjectsV2({
         Bucket: bucket,
     })
         .promise()
         .then((data) => {
             const result = data.Contents.filter(({ Key }) => {
-                return Key.split('/')[0] === `page_${pageNum}` && Key.split('/')[1];
+                return Key.split('/')[1];
             }).sort((a, b) => {
                 const firstKey = getObjectIndex(a);
                 const secondKey = getObjectIndex(b);
-                return firstKey - secondKey;
+                return getKeyPage(a) - getKeyPage(b) || firstKey - secondKey;
             });
             res.send(result);
         })
